@@ -40,6 +40,13 @@ export async function lookupBarcode(code: string) {
   return product
 }
 
+/** Look up an unknown barcode in public product databases (server-side). */
+export async function lookupExternalBarcodeAction(code: string) {
+  await requireUser()
+  const { lookupExternalBarcode } = await import('@/lib/barcode-lookup')
+  return lookupExternalBarcode(code)
+}
+
 /** Lightweight product search for pickers (name/barcode/SKU). */
 export async function searchProducts(q: string) {
   const session = await requireUser()

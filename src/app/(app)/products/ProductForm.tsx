@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { upsertProduct } from '@/app/actions/products'
+import { upsertProduct, lookupExternalBarcodeAction } from '@/app/actions/products'
 import { ImageCapture } from '@/components/ImageCapture'
 import { BarcodeScanner } from '@/components/BarcodeScanner'
 import { parseMoneyToCents, formatCents } from '@/lib/format'
@@ -51,8 +51,12 @@ export function ProductForm({
     thumbnailUrl: initial?.thumbnailUrl ?? null,
   })
   const [barcode, setBarcode] = useState(initial?.barcode ?? '')
+  const [name, setName] = useState(initial?.name ?? '')
+  const [description, setDescription] = useState(initial?.description ?? '')
   const [cost, setCost] = useState(initial?.costPriceCents ?? 0)
   const [sell, setSell] = useState(initial?.sellPriceCents ?? 0)
+  const [lookingUp, setLookingUp] = useState(false)
+  const [lookupMsg, setLookupMsg] = useState('')
 
   const margin = sell > 0 ? Math.round(((sell - cost) / sell) * 100) : 0
 
@@ -65,8 +69,8 @@ export function ProductForm({
       id: initial?.id,
       sku: fd.get('sku') || null,
       barcode: barcode || null,
-      name: fd.get('name'),
-      description: fd.get('description') || null,
+      name,
+      description: description || null,
       imageUrl: image.url,
       thumbnailUrl: image.thumbnailUrl,
       categoryId: fd.get('categoryId') || null,
@@ -99,7 +103,7 @@ export function ProductForm({
 
       <div>
         <label className={label}>Name *</label>
-        <input name="name" required defaultValue={initial?.name} className={input} />
+        <input name="name" required value={name} onChange={(e) => setName(e.target.value)} className={input} />
       </div>
 
       <div>
@@ -118,7 +122,30 @@ export function ProductForm({
           >
             📷
           </button>
+          <button
+            type="button"
+            disabled={lookingUp || !barcode.trim()}
+            onClick={async () => {
+              setLookingUp(true)
+              setLookupMsg('')
+              const ext = await lookupExternalBarcodeAction(barcode.trim()).catch(() => null)
+              setLookingUp(false)
+              if (ext) {
+                if (!name) setName(ext.name)
+                const desc = ext.description || ext.brand
+                if (!description && desc) setDescription(desc)
+                if (!image.url && ext.imageUrl) setImage({ url: ext.imageUrl, thumbnailUrl: ext.imageUrl })
+                setLookupMsg(`Found via ${ext.source}`)
+              } else {
+                setLookupMsg('No online match for this code')
+              }
+            }}
+            className="shrink-0 rounded-lg border px-3 text-sm text-slate-600 disabled:opacity-50"
+          >
+            {lookingUp ? '…' : '🔎'}
+          </button>
         </div>
+        {lookupMsg && <p className="mt-1 text-xs text-slate-500">{lookupMsg}</p>}
         {showScanner && (
           <div className="mt-2">
             <BarcodeScanner
@@ -203,7 +230,7 @@ export function ProductForm({
 
       <div>
         <label className={label}>Description</label>
-        <textarea name="description" defaultValue={initial?.description ?? ''} rows={2} className={input} />
+        <textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={input} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">

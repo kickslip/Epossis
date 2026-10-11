@@ -6,7 +6,7 @@ import { ProductForm } from '../ProductForm'
 export default async function NewProductPage({
   searchParams,
 }: {
-  searchParams: { barcode?: string }
+  searchParams: { barcode?: string; name?: string; description?: string; imageUrl?: string }
 }) {
   const session = await auth()
   if (!session?.user) redirect('/auth/signin')
@@ -26,7 +26,13 @@ export default async function NewProductPage({
         <h1 className="text-lg font-semibold">New product</h1>
       </div>
       <ProductForm
-        initial={{ barcode: searchParams.barcode ?? '' }}
+        initial={{
+          barcode: searchParams.barcode ?? '',
+          name: searchParams.name,
+          description: searchParams.description,
+          imageUrl: searchParams.imageUrl,
+          thumbnailUrl: searchParams.imageUrl,
+        }}
         categories={categories}
         suppliers={suppliers}
         currencySymbol={tenant.currencySymbol}
