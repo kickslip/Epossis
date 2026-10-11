@@ -35,5 +35,5 @@
 - Alerts: computed live in `src/lib/alerts.ts` (low/out/dead stock) — nothing stored
 - Analytics: `src/lib/analytics.ts` (best/slow sellers, reorder suggestions, valuation)
 - Exports: `/api/export/<products|stock|movements|sales|best-sellers|slow-sellers|invoices>.<csv|xlsx|pdf>` + `/api/export/receipt/<id>`
-- Files: uploads via `/api/upload` (sharp resize+thumb) → `storage/` → served tenant-checked via `/api/files/[...path]`
+- Files: uploads via `/api/upload` (sharp resize+thumb) → `stored_files` DB rows → served via `/api/files/<id>[ /thumb]`; `branding` kind is public (sign-in logos), others tenant-checked; legacy `storage/` disk paths still resolve
 - Offline: `public/sw.js`, `src/lib/offline/{db,sync}.ts`, `/api/sync`, `/api/sync/catalog`, `SyncStatus` component
