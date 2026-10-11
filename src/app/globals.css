@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Platform fallback scale — overwritten per-tenant by BrandStyle */
+  --primary-50: 239 246 255;
+  --primary-100: 219 234 254;
+  --primary-200: 191 219 254;
+  --primary-300: 147 197 253;
+  --primary-400: 96 165 250;
+  --primary-500: 59 130 246;
+  --primary-600: 44 116 216;
+  --primary-700: 37 99 235;
+  --primary-800: 35 82 166;
+  --primary-900: 31 65 128;
+}
+
+html,
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+  min-height: 100%;
+}
+
+/* Thin scrollbars for dense lists */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full;
+}
+
+/* Receipt print: only the receipt area prints */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .receipt-print,
+  .receipt-print * {
+    visibility: visible;
+  }
+  .receipt-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 72mm;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

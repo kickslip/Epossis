@@ -1,0 +1,441 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  STAFF
+}
+
+enum LocationType {
+  STORE
+  WAREHOUSE
+}
+
+enum MovementType {
+  RESTOCK
+  SALE
+  VOID_SALE
+  ADJUSTMENT
+  TRANSFER_OUT
+  TRANSFER_IN
+  STOCK_TAKE
+  RETURN
+}
+
+enum SaleStatus {
+  COMPLETED
+  VOIDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  MOBILE
+  OTHER
+}
+
+enum TransferStatus {
+  PENDING
+  RECEIVED
+  CANCELLED
+}
+
+enum StockTakeStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+model Tenant {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  logoUrl      String?
+  faviconUrl   String? // falls back to logoUrl when unset
+  primaryColor String   @default("#3b82f6")
+  accentColor  String? // secondary brand colour; defaults to platform accent
+  contactEmail String?
+  contactPhone String?
+  address      String?
+  isActive     Boolean  @default(true)
+
+  // Commerce settings
+  currency           String  @default("ZAR")
+  currencySymbol     String  @default("R")
+  timezone           String  @default("Africa/Johannesburg")
+  taxRate            Float   @default(0) // percent, e.g. 15 for VAT
+  taxInclusive       Boolean @default(true)
+  receiptFooter      String?
+  allowNegativeStock Boolean @default(true)
+
+  // Alert defaults (per-product reorderLevel overrides defaultReorderLevel)
+  defaultReorderLevel Int @default(5)
+  deadStockDays       Int @default(60)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users            User[]
+  locations        Location[]
+  categories       Category[]
+  suppliers        Supplier[]
+  products         Product[]
+  stockLevels      StockLevel[]
+  stockMovements   StockMovement[]
+  sales            Sale[]
+  saleItems        SaleItem[]
+  stockTransfers   StockTransfer[]
+  stockTakes       StockTake[]
+  purchaseInvoices PurchaseInvoice[]
+  auditLogs        AuditLog[]
+
+  @@map("tenants")
+}
+
+model User {
+  id       String  @id @default(cuid())
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  role          UserRole  @default(STAFF)
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  firstName     String
+  lastName      String
+  phoneNumber   String?
+  avatarUrl     String?
+  isActive      Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockMovements StockMovement[]
+  sales          Sale[]
+  stockTransfers StockTransfer[]
+  stockTakes     StockTake[]
+  auditLogs      AuditLog[]
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+model Location {
+  id       String       @id @default(cuid())
+  tenantId String
+  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name     String
+  type     LocationType @default(STORE)
+  address  String?
+  isActive Boolean      @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockLevels     StockLevel[]
+  stockMovements  StockMovement[]
+  sales           Sale[]
+  transfersFrom   StockTransfer[] @relation("TransferFrom")
+  transfersTo     StockTransfer[] @relation("TransferTo")
+  stockTakes      StockTake[]
+
+  @@unique([tenantId, name])
+  @@map("locations")
+}
+
+model Category {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name     String
+
+  products Product[]
+
+  @@unique([tenantId, name])
+  @@map("categories")
+}
+
+model Supplier {
+  id          String  @id @default(cuid())
+  tenantId    String
+  tenant      Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  address     String?
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products         Product[]
+  purchaseInvoices PurchaseInvoice[]
+
+  @@unique([tenantId, name])
+  @@map("suppliers")
+}
+
+model Product {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  sku         String?
+  barcode     String?
+  name        String
+  description String?
+  imageUrl    String?
+  thumbnailUrl String?
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  costPriceCents Int @default(0)
+  sellPriceCents Int @default(0)
+  unit           String @default("unit")
+
+  reorderLevel Int? // null → fall back to tenant.defaultReorderLevel
+  reorderQty   Int @default(0)
+  trackExpiry  Boolean @default(false)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockLevels       StockLevel[]
+  stockMovements    StockMovement[]
+  saleItems         SaleItem[]
+  transferItems     StockTransferItem[]
+  stockTakeItems    StockTakeItem[]
+
+  @@unique([tenantId, barcode])
+  @@unique([tenantId, sku])
+  @@index([tenantId, name])
+  @@index([tenantId, categoryId])
+  @@map("products")
+}
+
+model StockLevel {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  quantity   Int      @default(0)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([productId, locationId])
+  @@index([tenantId, locationId])
+  @@map("stock_levels")
+}
+
+model StockMovement {
+  id         String       @id @default(cuid())
+  tenantId   String
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  type       MovementType
+  qtyDelta   Int
+  qtyAfter   Int
+  unitCostCents Int?
+
+  referenceType String? // 'sale' | 'transfer' | 'stocktake' | 'invoice'
+  referenceId   String?
+  note          String?
+
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  clientKey String? @unique // idempotency key for offline/retried writes
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, productId, createdAt])
+  @@index([tenantId, locationId, createdAt])
+  @@index([tenantId, type, createdAt])
+  @@map("stock_movements")
+}
+
+model Sale {
+  id         String     @id @default(cuid())
+  tenantId   String
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location   @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  saleNumber        Int
+  provisionalNumber String? // temp client ref for offline-created sales
+  status            SaleStatus @default(COMPLETED)
+
+  subtotalCents Int
+  discountCents Int @default(0)
+  taxCents      Int @default(0)
+  totalCents    Int
+
+  paymentMethod       PaymentMethod @default(CASH)
+  cashTenderedCents   Int?
+  changeCents         Int?
+  paymentRef          String? // card/mobile reference typed by cashier
+
+  note           String?
+  userId         String?
+  user           User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  clientKey      String? @unique // idempotency for offline sync / retries
+  offlineCreated Boolean @default(false)
+
+  voidedAt   DateTime?
+  voidReason String?
+
+  createdAt DateTime @default(now())
+
+  items SaleItem[]
+
+  @@unique([tenantId, saleNumber])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, locationId, createdAt])
+  @@map("sales")
+}
+
+model SaleItem {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  saleId   String
+  sale     Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String
+  product  Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  quantity       Int
+  unitPriceCents Int
+  unitCostCents  Int @default(0) // snapshot for profit reporting
+  discountCents  Int @default(0)
+  lineTotalCents Int
+
+  @@index([tenantId, productId])
+  @@index([saleId])
+  @@map("sale_items")
+}
+
+model StockTransfer {
+  id             String         @id @default(cuid())
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fromLocationId String
+  fromLocation   Location       @relation("TransferFrom", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toLocationId   String
+  toLocation     Location       @relation("TransferTo", fields: [toLocationId], references: [id], onDelete: Restrict)
+  status         TransferStatus @default(PENDING)
+  note           String?
+
+  userId String?
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  receivedAt   DateTime?
+  receivedById String?
+  clientKey    String?   @unique
+
+  createdAt DateTime @default(now())
+
+  items StockTransferItem[]
+
+  @@index([tenantId, status])
+  @@map("stock_transfers")
+}
+
+model StockTransferItem {
+  id         String        @id @default(cuid())
+  transferId String
+  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity   Int
+
+  @@map("stock_transfer_items")
+}
+
+model StockTake {
+  id         String          @id @default(cuid())
+  tenantId   String
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  status     StockTakeStatus @default(OPEN)
+  note       String?
+  userId     String?
+  user       User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  items StockTakeItem[]
+
+  @@index([tenantId, locationId])
+  @@map("stock_takes")
+}
+
+model StockTakeItem {
+  id          String    @id @default(cuid())
+  stockTakeId String
+  stockTake   StockTake @relation(fields: [stockTakeId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  countedQty  Int
+  systemQty   Int
+  variance    Int // countedQty - systemQty
+
+  @@unique([stockTakeId, productId])
+  @@map("stock_take_items")
+}
+
+model PurchaseInvoice {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplierId    String?
+  supplier      Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  invoiceNumber String?
+  invoiceDate   DateTime?
+  totalCents    Int?
+  fileUrl       String // served via /api/files/invoices/...
+  mimeType      String
+  note          String?
+  movementIds   String? // JSON array of StockMovement ids this invoice covers
+  uploadedById  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, supplierId])
+  @@index([tenantId, createdAt])
+  @@map("purchase_invoices")
+}
+
+model AuditLog {
+  id       String  @id @default(cuid())
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action   String // e.g. 'product.update', 'sale.void', 'tenant.create'
+  entity   String
+  entityId String?
+  details  String? // JSON string
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
