@@ -15,6 +15,10 @@ src/generated
 
 landing page and ui/
 .devin/config.local.json
+.vercel
 
 .DS_Store
 *.pem
+
+.vercel
+.env*
