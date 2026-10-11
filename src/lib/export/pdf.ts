@@ -2,7 +2,7 @@ import PDFDocument from 'pdfkit'
 
 export type PdfBrand = {
   name: string
-  logoPath?: string | null // absolute fs path to a logo image
+  logoData?: Buffer | null // raw image bytes (from StoredFile)
   footer?: string | null
 }
 
@@ -21,12 +21,12 @@ export async function tablePdf(opts: {
   const done = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))))
 
   // Header
-  if (opts.brand.logoPath) {
+  if (opts.brand.logoData) {
     try {
-      doc.image(opts.brand.logoPath, 40, 32, { height: 36 })
+      doc.image(opts.brand.logoData, 40, 32, { height: 36 })
     } catch {}
   }
-  doc.fontSize(16).font('Helvetica-Bold').text(opts.brand.name, opts.brand.logoPath ? 90 : 40, 40)
+  doc.fontSize(16).font('Helvetica-Bold').text(opts.brand.name, opts.brand.logoData ? 90 : 40, 40)
   doc.fontSize(10).font('Helvetica').fillColor('#666').text(opts.title)
   if (opts.subtitle) doc.text(opts.subtitle)
   doc.text(`Generated ${new Date().toLocaleString('en-ZA')}`)
@@ -87,9 +87,9 @@ export async function receiptPdf(opts: {
   const money = (c: number) => `${opts.sym}${(c / 100).toFixed(2)}`
   const W = 226 - 60
 
-  if (opts.brand.logoPath) {
+  if (opts.brand.logoData) {
     try {
-      doc.image(opts.brand.logoPath, 83, 20, { width: 60 })
+      doc.image(opts.brand.logoData, 83, 20, { width: 60 })
       doc.moveDown(3)
     } catch {}
   }

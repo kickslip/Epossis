@@ -1,5 +1,5 @@
 import { auth } from '@/lib/auth'
-import { saveFile, MAX_UPLOAD_BYTES, type FileKind } from '@/lib/files'
+import { saveFile, saveFileWithThumb, MAX_UPLOAD_BYTES, type FileKind } from '@/lib/files'
 import { NextResponse } from 'next/server'
 import sharp from 'sharp'
 
@@ -55,12 +55,19 @@ export async function POST(req: Request) {
         .resize(400, 400, { fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 78 })
         .toBuffer()
-      const url = await saveFile(kind, tenantId, optimized, 'image/jpeg')
-      const thumbnailUrl = await saveFile(kind, tenantId, thumb, 'image/jpeg')
+      const { url, thumbnailUrl } = await saveFileWithThumb(
+        kind,
+        tenantId,
+        optimized,
+        'image/jpeg',
+        file.name,
+        thumb,
+        'image/jpeg',
+      )
       return NextResponse.json({ url, thumbnailUrl })
     }
     if (mime === 'application/pdf' && kind === 'invoices') {
-      const url = await saveFile(kind, tenantId, bytes, mime)
+      const url = await saveFile(kind, tenantId, bytes, mime, file.name)
       return NextResponse.json({ url })
     }
     return NextResponse.json({ error: 'Unsupported file type' }, { status: 415 })

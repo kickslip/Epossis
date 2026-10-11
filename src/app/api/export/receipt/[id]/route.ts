@@ -3,8 +3,6 @@ import { prisma } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { receiptPdf } from '@/lib/export/pdf'
 import { formatDateTime } from '@/lib/format'
-import path from 'path'
-import fs from 'fs/promises'
 
 /** GET /api/export/receipt/<saleId> — branded PDF receipt. */
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -23,17 +21,15 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   })
   if (!sale) return new NextResponse('Not found', { status: 404 })
 
-  let logoPath: string | null = null
-  if (sale.tenant.logoUrl?.startsWith('/api/files/')) {
-    const abs = path.join(process.cwd(), 'storage', sale.tenant.logoUrl.replace('/api/files/', '').replace(/\.\./g, ''))
-    try {
-      await fs.access(abs)
-      logoPath = abs
-    } catch {}
+  let logoData: Buffer | null = null
+  const logoFileId = sale.tenant.logoUrl?.match(/\/api\/files\/([^/]+)/)?.[1]
+  if (logoFileId) {
+    const row = await prisma.storedFile.findUnique({ where: { id: logoFileId } })
+    if (row) logoData = Buffer.from(row.data)
   }
 
   const pdf = await receiptPdf({
-    brand: { name: sale.tenant.name, logoPath, footer: sale.tenant.receiptFooter },
+    brand: { name: sale.tenant.name, logoData, footer: sale.tenant.receiptFooter },
     saleNumber: sale.saleNumber,
     dateStr: formatDateTime(sale.createdAt),
     locationName: sale.location.name,

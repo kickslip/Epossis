@@ -6,8 +6,6 @@ import { toXlsx } from '@/lib/export/xlsx'
 import { tablePdf, type PdfBrand } from '@/lib/export/pdf'
 import { bestSellers, slowSellers } from '@/lib/analytics'
 import { subDays } from 'date-fns'
-import path from 'path'
-import fs from 'fs/promises'
 
 const MOVE_LABEL: Record<string, string> = {
   RESTOCK: 'Received', SALE: 'Sold', VOID_SALE: 'Sale voided', ADJUSTMENT: 'Adjusted',
@@ -21,16 +19,11 @@ type Dataset = {
   rows: (string | number | null | undefined)[][]
 }
 
-async function logoPath(logoUrl: string | null): Promise<string | null> {
-  if (!logoUrl?.startsWith('/api/files/')) return null
-  const rel = logoUrl.replace('/api/files/', '').replace(/\.\./g, '')
-  const abs = path.join(process.cwd(), 'storage', rel)
-  try {
-    await fs.access(abs)
-    return abs
-  } catch {
-    return null
-  }
+async function logoData(logoUrl: string | null): Promise<Buffer | null> {
+  const id = logoUrl?.match(/\/api\/files\/([^/]+)/)?.[1]
+  if (!id) return null
+  const row = await prisma.storedFile.findUnique({ where: { id } })
+  return row ? Buffer.from(row.data) : null
 }
 
 async function buildDataset(
@@ -193,7 +186,7 @@ export async function GET(req: Request, { params }: { params: { file: string } }
   const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } })
   const brand: PdfBrand = {
     name: tenant.name,
-    logoPath: await logoPath(tenant.logoUrl),
+    logoData: await logoData(tenant.logoUrl),
     footer: tenant.receiptFooter,
   }
   const pdf = await tablePdf({ brand, title: dataset.title, headers: dataset.headers, rows: dataset.rows })

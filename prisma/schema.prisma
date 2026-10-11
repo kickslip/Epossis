@@ -95,8 +95,27 @@ model Tenant {
   stockTakes       StockTake[]
   purchaseInvoices PurchaseInvoice[]
   auditLogs        AuditLog[]
+  storedFiles      StoredFile[]
 
   @@map("tenants")
+}
+
+/** Uploaded files (product images, invoice docs, brand logos) stored in the
+ *  database so deploys on serverless/ephemeral filesystems keep them. */
+model StoredFile {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  kind        String // products | invoices | branding
+  filename    String
+  mimeType    String
+  data        Bytes    @db.ByteA
+  thumbnail   Bytes?   @db.ByteA
+  thumbMime   String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, kind])
+  @@map("stored_files")
 }
 
 model User {

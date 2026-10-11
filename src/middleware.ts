@@ -25,7 +25,7 @@ export const config = {
     '/admin/:path*',
     '/scan/:path*',
     '/more/:path*',
-    '/api/files/:path*',
+    // /api/files handles its own auth (branding assets are public)
     '/api/sync/:path*',
     '/api/export/:path*',
   ],
