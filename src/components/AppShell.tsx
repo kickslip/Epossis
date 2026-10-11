@@ -83,7 +83,7 @@ export function AppShell({
           <p className="truncate text-sm font-medium text-slate-700">{userName}</p>
           <p className="text-xs text-slate-400">{roleLabel(role)}</p>
           <button
-            onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+            onClick={() => signOut({ callbackUrl: '/' })}
             className="mt-2 flex items-center gap-2 text-xs text-slate-500 hover:text-red-600"
           >
             <LogOut className="h-3.5 w-3.5" /> Sign out
@@ -104,7 +104,7 @@ export function AppShell({
             )}
           </Link>
           <button
-            onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+            onClick={() => signOut({ callbackUrl: '/' })}
             className="text-xs text-slate-500"
           >
             Sign out
