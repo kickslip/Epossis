@@ -47,6 +47,13 @@ export async function lookupExternalBarcodeAction(code: string) {
   return lookupExternalBarcode(code)
 }
 
+/** Same lookup, but returns all deduplicated candidates so the user can pick. */
+export async function lookupExternalBarcodesAction(code: string) {
+  await requireUser()
+  const { lookupExternalBarcodes } = await import('@/lib/barcode-lookup')
+  return lookupExternalBarcodes(code)
+}
+
 /** Lightweight product search for pickers (name/barcode/SKU). */
 export async function searchProducts(q: string) {
   const session = await requireUser()

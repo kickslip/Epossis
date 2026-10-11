@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { BarcodeScanner, useKeyboardScanner } from '@/components/BarcodeScanner'
-import { lookupBarcode, lookupExternalBarcodeAction } from '@/app/actions/products'
+import { lookupBarcode, lookupExternalBarcodesAction } from '@/app/actions/products'
 import { lookupCached, isOnline } from '@/lib/offline/db'
 
 type ScannedProduct = {
@@ -28,12 +28,14 @@ export function ScanHub({ locations }: { locations: { id: string; name: string }
     description?: string
     imageUrl?: string
     source: string
-  } | null>(null)
+  }[]>([])
+  const [pickedExternal, setPickedExternal] = useState(0)
   const [searchingExternal, setSearchingExternal] = useState(false)
 
   const onScan = useCallback(async (scanned: string) => {
     setCode(scanned)
-    setExternal(null)
+    setExternal([])
+    setPickedExternal(0)
     let found: ScannedProduct | null = null
     if (isOnline()) {
       found = (await lookupBarcode(scanned).catch(() => null)) as unknown as ScannedProduct | null
@@ -48,9 +50,9 @@ export function ScanHub({ locations }: { locations: { id: string; name: string }
     setNotFound(!found)
     if (!found && isOnline()) {
       setSearchingExternal(true)
-      const ext = await lookupExternalBarcodeAction(scanned).catch(() => null)
+      const ext = await lookupExternalBarcodesAction(scanned).catch(() => [])
       setSearchingExternal(false)
-      if (ext) setExternal(ext)
+      if (ext && ext.length) setExternal(ext)
     }
   }, [])
 
@@ -86,33 +88,52 @@ export function ScanHub({ locations }: { locations: { id: string; name: string }
               <p className="text-sm font-medium text-slate-700">
                 {searchingExternal ? 'Searching online databases…' : 'No product with this code in your catalog.'}
               </p>
-              {external && (
-                <div className="mt-2 flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                  {external.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={external.imageUrl} alt="" className="h-14 w-14 rounded-lg object-cover" />
-                  ) : (
-                    <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-emerald-100 text-xl">🔎</div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-emerald-900">{external.name}</p>
-                    {external.brand && <p className="text-xs text-emerald-700">{external.brand}</p>}
-                    <p className="text-[11px] text-emerald-600">Found via {external.source}</p>
-                  </div>
+              {external.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  {external.map((ext, i) => (
+                    <button
+                      key={`${ext.source}-${i}`}
+                      type="button"
+                      onClick={() => setPickedExternal(i)}
+                      className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition ${
+                        pickedExternal === i
+                          ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
+                          : 'border-slate-200 bg-white'
+                      }`}
+                    >
+                      {ext.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={ext.imageUrl} alt="" className="h-12 w-12 rounded-lg object-cover" />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 text-lg">🔎</div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-800">{ext.name}</p>
+                        {ext.brand && <p className="truncate text-xs text-slate-500">{ext.brand}</p>}
+                        <p className="text-[11px] text-slate-400">{ext.source}</p>
+                      </div>
+                      <span
+                        className={`h-4 w-4 shrink-0 rounded-full border-2 ${
+                          pickedExternal === i ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300'
+                        }`}
+                      />
+                    </button>
+                  ))}
                 </div>
               )}
               <button
                 onClick={() => {
+                  const ext = external[pickedExternal]
                   const p = new URLSearchParams({ barcode: code })
-                  if (external?.name) p.set('name', external.name)
-                  const desc = external?.description || external?.brand
+                  if (ext?.name) p.set('name', ext.name)
+                  const desc = ext?.description || ext?.brand
                   if (desc) p.set('description', desc)
-                  if (external?.imageUrl) p.set('imageUrl', external.imageUrl)
+                  if (ext?.imageUrl) p.set('imageUrl', ext.imageUrl)
                   router.push(`/products/new?${p.toString()}`)
                 }}
                 className="mt-2 w-full rounded-lg bg-primary-600 py-2.5 text-sm font-semibold text-white"
               >
-                {external ? '+ Create listing with these details' : '+ Create new listing'}
+                {external.length ? '+ Create listing with selected details' : '+ Create new listing'}
               </button>
             </div>
           )}
