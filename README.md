@@ -35,6 +35,28 @@ npm run dev               # http://localhost:3000
 
 Branded sign-in/registration: `/auth/signin?tenant=demo` and `/auth/register?tenant=demo`.
 
+## Deploy (Vercel + hosted Postgres)
+
+1. **Database** — any hosted Postgres works (Neon, Vercel Postgres, Railway,
+   Supabase). Create one and copy the `postgres://…` connection string.
+2. **Import** — vercel.com → Add New → Project → import `kickslip/Epossis`.
+3. **Env vars** on the project:
+   - `DATABASE_URL` = your `postgres://…` string
+   - `AUTH_SECRET` = any long random string (`openssl rand -hex 32`)
+   - `AUTH_URL` = `https://<your-app>.vercel.app`
+   - `NEXT_PUBLIC_PLATFORM_NAME` = `Epossis` (or your white-label brand)
+4. **Deploy.** Then, from this repo on your machine:
+   ```bash
+   DATABASE_URL="postgres://…prod…" npx prisma migrate deploy
+   DATABASE_URL="postgres://…prod…" npm run db:seed   # optional demo data
+   ```
+5. **PWA** — open the site on your phone → browser menu → "Add to Home
+   Screen" (or tap the Install app button on the landing/More page). Camera
+   scanning works because Vercel serves HTTPS.
+
+CLI alternative: run `npx vercel login` once, then `npx vercel --yes` +
+`npx vercel env add …` + `npx vercel deploy --prod`.
+
 ## How it's organised
 
 - `src/app/(app)/` — tenant app: `dashboard`, `scan`, `pos`, `products`, `stock`
