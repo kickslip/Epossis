@@ -30,6 +30,7 @@
 ## Feature map
 
 - Barcode scanning: `src/components/BarcodeScanner.tsx` (ZXing, camera) + `useKeyboardScanner` (USB gun wedge)
+- Unknown-barcode enrichment: `src/lib/barcode-lookup.ts` → `lookupExternalBarcodeAction` — parallel keyless sources (OpenFacts family, Google Books, UPCitemdb); ScanHub + ProductForm pre-fill from hits
 - Stock ops: receive/adjust/transfer/count in `src/app/actions/stock.ts` + `stocktakes.ts`
 - Sales: `src/app/actions/sales.ts` — `completeSale` (tx: sale+items+SALE movements+decrement), `voidSale` (reversing movements)
 - Alerts: computed live in `src/lib/alerts.ts` (low/out/dead stock) — nothing stored
